@@ -1042,7 +1042,7 @@ function rescuePress(k) {
   if (r.who === 'me') {
     if (r.phase === 'turn' && (k === 'up' || k === 'action')) {
       r.phase = 'claw'; r.last = null; if (!r.line) r.t = 0;
-      say(isTouch ? 'HUGG! TRYCK VÄNSTER OCH HÖGER SIDA VARANNAN GÅNG.' : 'HUGG MED ISPIGGARNA! VÄXLA ← → SÅ SNABBT DU KAN.', C.ice, 5);
+      say(isTouch ? 'HUGG! TRYCK VÄNSTER OCH HÖGER SIDA VARANNAN GÅNG.' : 'HUGG MED ISDUBBARNA! VÄXLA ← → SÅ SNABBT DU KAN.', C.ice, 5);
     } else if (r.phase === 'claw' && (k === 'down' || k === 'action')) {
       r.phase = 'turn';
       say(isTouch ? 'VÄND DIG MED ◀ ▶, HUGG MED SKJUT.' : 'VÄND DIG MED ← →, HUGG MED ↑.', C.ice, 3);
@@ -1361,7 +1361,7 @@ const TIPS = [
   ['- BÄCKAR, ÅAR OCH KÄLLOR GER TUNN IS. MITT PÅ SJÖN FRÖS DET SIST.', C.text],
   ['- PIKA MED STAVEN. DOVT DUNK = BRA. VASST KNASTER = VÄND!', C.text],
   ['- GÅR KOMPISEN IGENOM: GÅ INTE FRAM! KASTA LINAN FRÅN 7-18 M.', C.text],
-  ['- GÅR DU SJÄLV IGENOM: VÄND DIG DIT DU KOM IFRÅN OCH ANVÄND ISPIGGARNA.', C.text]
+  ['- GÅR DU SJÄLV IGENOM: VÄND DIG DIT DU KOM IFRÅN OCH ANVÄND ISDUBBARNA.', C.text]
 ];
 function drawTipsTab() {
   ctx.fillStyle = C.bg; ctx.fillRect(0, 18, W, H - 18);
@@ -1600,7 +1600,7 @@ function drawSeason() {
   txt('SÄSONGEN ÄR SLUT', W / 2, 60, C.ice, 'center', 16);
   txt('TOTALT ' + total + ' POÄNG', W / 2, 110, C.gold, 'center');
   txt(result.newHi ? 'NYTT REKORD!' : 'REKORD ' + hi, W / 2, 132, result.newHi ? C.ok : C.dim, 'center');
-  txt('ÅK ALDRIG ENSAM. HA ALLTID ISPIGGAR,', W / 2, 180, C.dim, 'center');
+  txt('ÅK ALDRIG ENSAM. HA ALLTID ISDUBBAR,', W / 2, 180, C.dim, 'center');
   txt('KASTLINA OCH TORRSÄCK MED DIG.', W / 2, 192, C.dim, 'center');
   if (timer > 1 && (Math.floor(t * 2.5) & 1)) txt(isTouch ? 'TRYCK PÅ SKÄRMEN' : 'TRYCK MELLANSLAG', W / 2, 250, C.text, 'center');
 }
