@@ -97,13 +97,33 @@ button:focus-visible { outline: 3px solid var(--ice); outline-offset: 2px; }
       width: min(42vw, 164px);
     }
   }
-  /* landscape: picture first, action buttons at the right edge */
+  /* landscape menus: picture first, action buttons at the right edge */
   @media (orientation: landscape) {
     .wrap { flex-direction: row; justify-content: space-between; align-items: stretch; }
     .screen { flex: 0 1 auto; align-self: center; min-width: 0; border-width: 3px; height: auto; aspect-ratio: 16 / 10;
-      width: min(calc(100vw - 166px - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100dvh - 26px) * 1.6)); }
-    .pad { align-content: end; grid-template-rows: 1fr auto auto; }
+      width: min(calc(100vw - 158px - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100dvh - 26px) * 1.6)); }
+    .pad { --big: 104px; --small: 60px; align-content: end; grid-template-rows: 1fr auto auto; }
     .pad .mute { align-self: start; }
+    /* title and on the ice: the picture fills the screen and the buttons lie on top */
+    .full .screen { position: absolute; inset: 0; margin: auto; width: var(--fw); height: var(--fh); aspect-ratio: auto; max-width: none; border: 0; outline: 0; }
+    .full .wrap { padding: 0; }
+    .full .pad {
+      position: fixed; right: max(14px, calc(env(safe-area-inset-right) + 6px)); bottom: max(16px, calc(env(safe-area-inset-bottom) + 6px));
+      grid-template-rows: auto auto; pointer-events: none;
+    }
+    .full .pad button { pointer-events: auto; }
+    .full .pad .gone { pointer-events: none; }
+    .full .pad .round { background: rgba(12,22,34,0.6); border-color: rgba(159,224,255,0.45); }
+    .full .pad .round.on { background: rgba(159,224,255,0.35); }
+    .full .pad .main { opacity: 0.9; }
+    .full .pad .main.dim { opacity: 0.35; }
+    .full .pad .mute {
+      position: fixed; top: 36px; right: calc(14.2vw + 14px + env(safe-area-inset-right)); width: 76px;
+      color: var(--ink); background: rgba(12,22,34,0.6); border-color: rgba(159,224,255,0.45);
+    }
+    body.full[data-state="skate"] .steer, body.full[data-state="rescue"] .steer {
+      position: fixed; left: max(14px, calc(env(safe-area-inset-left) + 6px)); bottom: max(16px, calc(env(safe-area-inset-bottom) + 6px)); width: 144px;
+    }
   }
 }
 </style>
@@ -136,7 +156,8 @@ button:focus-visible { outline: 3px solid var(--ice); outline-offset: 2px; }
 <script>
 (() => {
 'use strict';
-const W = 480, H = 300;
+const W = 480;
+let H = 300;              // lower in full-screen phone mode: same width, so the ice is zoomed in
 const cv = document.getElementById('game');
 const mainCtx = cv.getContext('2d');
 let ctx = mainCtx;
@@ -144,18 +165,21 @@ const tripCv = document.createElement('canvas'); tripCv.width = W; tripCv.height
 const tripCtx = tripCv.getContext('2d');
 // render at the screen's real resolution so text is sharp; game logic still uses W x H units
 let RS = 1;
+let full = false;         // phone, landscape, out on the ice or on the title: picture fills the screen
+const UI = { l: 0, r: 0, msgL: 0, msgR: W };   // room taken by notch and overlay buttons, in game units
 function sizeCanvas() {
   const r = cv.getBoundingClientRect();
   const want = Math.max(1, Math.min(4, Math.ceil((r.width || W) * (devicePixelRatio || 1) / W)));
-  if (want === RS && cv.width === W * RS) return;
+  if (want === RS && cv.width === W * RS && cv.height === H * RS) return;
   RS = want;
   for (const [c, g] of [[cv, mainCtx], [tripCv, tripCtx]]) {
     c.width = W * RS; c.height = H * RS;
     g.setTransform(RS, 0, 0, RS, 0, 0); g.imageSmoothingEnabled = false;
   }
 }
+let layoutDirty = true;
 sizeCanvas();
-addEventListener('resize', () => setTimeout(sizeCanvas, 50));
+['resize', 'orientationchange'].forEach(ev => addEventListener(ev, () => [0, 60, 350].forEach(ms => setTimeout(() => { layoutDirty = true; }, ms))));
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 const C = {
@@ -1210,6 +1234,31 @@ function padLayout() {
   }
   return { main: ['VIDARE', 'action'] };
 }
+const probe = document.createElement('div');
+probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)';
+document.body.appendChild(probe);
+function syncLayout() {
+  if (!layoutDirty && document.body.dataset.state === state) return;
+  layoutDirty = false;
+  document.body.dataset.state = state;
+  const vw = document.body.clientWidth, vh = document.body.clientHeight;
+  full = isTouch && vw > vh && (state === 'title' || state === 'skate' || state === 'rescue');
+  document.body.classList.toggle('full', full);
+  H = full ? clamp(Math.round(W * vh / vw), 200, 300) : 300;
+  if (full) {
+    const k = Math.min(vw / W, vh / H);
+    document.body.style.setProperty('--fw', W * k + 'px'); document.body.style.setProperty('--fh', H * k + 'px');
+  }
+  sizeCanvas();
+  Object.assign(UI, { l: 0, r: 0, msgL: 0, msgR: W });
+  if (full) {
+    const r = cv.getBoundingClientRect(), k = r.width / W, cs = getComputedStyle(probe);
+    UI.l = Math.max(0, parseFloat(cs.paddingLeft) - r.left) / k;
+    UI.r = Math.max(0, parseFloat(cs.paddingRight) - (vw - r.right)) / k;
+    const st = document.querySelector('.steer').getBoundingClientRect(), pd = document.querySelector('.pad').getBoundingClientRect();
+    UI.msgL = Math.max(0, (st.right - r.left) / k) + 5; UI.msgR = Math.min(W, (pd.left - r.left) / k) - 5;
+  }
+}
 let padSig = '';
 function updatePad() {
   if (!isTouch) return;
@@ -1273,18 +1322,19 @@ function drawTitle() {
     ctx.fillStyle = '#e4ecf2'; if (hash(x, 1) < 0.3) ctx.fillRect(x, h1 - 2, 2, 2);
     ctx.fillStyle = '#132a1a'; ctx.fillRect(x, H - h2, 2, h2);
   }
+  const q = (H - 200) / 100, oy = lerp(-34, 0, q), ky = lerp(150, 200, q);   // 1 = normal height, 0 = flattest phone
   // two skaters gliding
   const sx = ((t * 55) % (W + 80)) - 40;
   ctx.fillStyle = '#2c4054';
-  for (let x = -40; x < sx; x += 2) { ctx.fillRect(x, 200 + Math.round(Math.sin(x / 30) * 6), 1, 1); ctx.fillRect(x - 24, 214 + Math.round(Math.sin((x - 24) / 30) * 6), 1, 1); }
-  drawSkater(sx, 200 + Math.sin(sx / 30) * 6, Math.atan(Math.cos(sx / 30) * 0.2), C.me, t * 1.1, 5, 1.6);
-  drawSkater(sx - 24, 214 + Math.sin((sx - 24) / 30) * 6, Math.atan(Math.cos((sx - 24) / 30) * 0.2), C.pal, t * 1.1 + 0.5, 5, 1.6);
-  txt('BLANKIS', W / 2, 66, C.ice, 'center', 32);
-  txt('ETT LÅNGFÄRDSSKRIDSKOSPEL', W / 2, 108, C.text, 'center');
-  txt('LÄS VÄDRET. LÄS KARTAN. HITTA BLANKISEN.', W / 2, 132, C.dim, 'center');
-  txt('ÅK LÅNGT. PIKA ISEN. TA HAND OM KOMPISEN.', W / 2, 146, C.dim, 'center');
-  if (hi > 0) txt('REKORD ' + hi, W / 2, 168, C.gold, 'center');
-  if (Math.floor(t * 2.5) & 1) txt((isTouch ? 'TRYCK PÅ SKÄRMEN' : 'TRYCK MELLANSLAG') + ' FÖR ATT BÖRJA', W / 2, 250, C.text, 'center');
+  for (let x = -40; x < sx; x += 2) { ctx.fillRect(x, ky + Math.round(Math.sin(x / 30) * 6), 1, 1); ctx.fillRect(x - 24, ky + 14 + Math.round(Math.sin((x - 24) / 30) * 6), 1, 1); }
+  drawSkater(sx, ky + Math.sin(sx / 30) * 6, Math.atan(Math.cos(sx / 30) * 0.2), C.me, t * 1.1, 5, 1.6);
+  drawSkater(sx - 24, ky + 14 + Math.sin((sx - 24) / 30) * 6, Math.atan(Math.cos((sx - 24) / 30) * 0.2), C.pal, t * 1.1 + 0.5, 5, 1.6);
+  txt('BLANKIS', W / 2, 66 + oy, C.ice, 'center', 32);
+  txt('ETT LÅNGFÄRDSSKRIDSKOSPEL', W / 2, 108 + oy, C.text, 'center');
+  txt('LÄS VÄDRET. LÄS KARTAN. HITTA BLANKISEN.', W / 2, 132 + oy, C.dim, 'center');
+  txt('ÅK LÅNGT. PIKA ISEN. TA HAND OM KOMPISEN.', W / 2, 146 + oy, C.dim, 'center');
+  if (hi > 0) txt('REKORD ' + hi, W / 2, 168 + oy, C.gold, 'center');
+  if (Math.floor(t * 2.5) & 1) txt((isTouch ? 'TRYCK PÅ SKÄRMEN' : 'TRYCK MELLANSLAG') + ' FÖR ATT BÖRJA', W / 2, lerp(176, 250, q), C.text, 'center');
 }
 
 function drawHeader() {
@@ -1515,15 +1565,15 @@ function drawSwimmer(x, y, col, a = 0) {
 function drawSkateHud() {
   const here = sample(P.x, P.y), S = SURF[here.surf];
   ctx.fillStyle = 'rgba(6,12,20,0.85)'; ctx.fillRect(0, 0, W, 16);
-  txt(run.L.name, 4, 4, C.gold);
+  txt(run.L.name, 4 + UI.l, 4, C.gold);
   txt(clockStr(run.clock), 140, 4, run.clock > 14.5 * 3600 ? C.warn : C.text);
   txt((run.dist / 1000).toFixed(1) + ' KM', 196, 4);
   txt(Math.round(run.pts) + ' P', 270, 4, C.ice);
   txt(Math.round(P.v * 3.6) + ' KM/H', 334, 4);
-  txt(S.n, W - 4, 4, S.col, 'right');
-  if (run.trip) { ctx.fillStyle = 'rgba(6,12,20,0.9)'; ctx.fillRect(0, 16, 92, 14); txt('×2 SVAMPBONUS', 4, 19, 'hsl(' + Math.floor(t * 300 % 360) + ',100%,70%)'); }
+  txt(S.n, W - 4 - UI.r, 4, S.col, 'right');
+  if (run.trip) { ctx.fillStyle = 'rgba(6,12,20,0.9)'; ctx.fillRect(0, 16, 92 + UI.l, 14); txt('×2 SVAMPBONUS', 4 + UI.l, 19, 'hsl(' + Math.floor(t * 300 % 360) + ',100%,70%)'); }
   // minimap
-  const mm = 64, mx = W - mm - 4, my = 20;
+  const mm = 64, mx = Math.round(W - mm - 4 - UI.r), my = 20;
   ctx.fillStyle = '#000'; ctx.fillRect(mx - 1, my - 1, mm + 2, mm + 2);
   ctx.drawImage(rink.mini, mx, my, mm, mm);
   const dot = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(mx + Math.round((x + rink.ext) / (2 * rink.ext) * mm) - 1, my + Math.round((y + rink.ext) / (2 * rink.ext) * mm) - 1, 3, 3); };
@@ -1531,6 +1581,25 @@ function drawSkateHud() {
   dot(K.x, K.y, C.pal); dot(P.x, P.y, C.me);
 }
 function drawMsgs() {
+  if (full) {                // between the overlay buttons, wrapped to the space that is left
+    const cx = (UI.msgL + UI.msgR) / 2, room = UI.msgR - UI.msgL - 8, lines = [];
+    ctx.font = '600 8px ' + FONT;
+    for (const m of msgs) {
+      let line = '';
+      for (const w of m.text.split(' ')) {
+        const tryLine = line ? line + ' ' + w : w;
+        if (line && ctx.measureText(tryLine).width > room) { lines.push([line, m.col]); line = w; } else line = tryLine;
+      }
+      lines.push([line, m.col]);
+    }
+    lines.forEach(([s, col], i) => {
+      ctx.font = '600 8px ' + FONT;
+      const w = ctx.measureText(s).width + 8, y = H - 13 - (lines.length - 1 - i) * 11;
+      ctx.fillStyle = 'rgba(6,12,20,0.8)'; ctx.fillRect(cx - w / 2, y - 2, w, 11);
+      txt(s, cx, y, col, 'center', 7);
+    });
+    return;
+  }
   msgs.forEach((m, i) => {
     const y = H - 14 - (msgs.length - 1 - i) * 13;
     ctx.fillStyle = 'rgba(6,12,20,0.85)'; ctx.fillRect(0, y - 3, W, 13);
@@ -1538,14 +1607,14 @@ function drawMsgs() {
   });
 }
 function drawRescueUi() {
-  const r = resq;
-  box(8, 22, 150, r.who === 'pal' ? 52 : 64, 'rgba(6,12,20,0.9)', C.bad);
-  txt(r.who === 'pal' ? 'KAMRATRÄDDNING' : 'SJÄLVRÄDDNING', 14, 28, C.bad);
-  txt('KRAFT', 14, 42, C.dim);
-  bar(62, 42, 88, 7, r.cold / (r.who === 'pal' ? 45 : 35), r.cold < 10 ? C.bad : C.warn);
+  const r = resq, l = UI.l;
+  box(8 + l, 22, 150, r.who === 'pal' ? 52 : 64, 'rgba(6,12,20,0.9)', C.bad);
+  txt(r.who === 'pal' ? 'KAMRATRÄDDNING' : 'SJÄLVRÄDDNING', 14 + l, 28, C.bad);
+  txt('KRAFT', 14 + l, 42, C.dim);
+  bar(62 + l, 42, 88, 7, r.cold / (r.who === 'pal' ? 45 : 35), r.cold < 10 ? C.bad : C.warn);
   if (r.who === 'me') {
-    txt('UPPE', 14, 56, C.dim); bar(62, 56, 88, 7, r.prog, C.ok);
-    txt(isTouch ? (r.phase === 'turn' ? '◀ ▶ VÄND, SEDAN HUGG' : 'VÄXLA ◀ ▶ SNABBT') : (r.phase === 'turn' ? '← → VÄND  ↑ HUGG' : '← → HUGG  ↓ VÄND OM'), 14, 68, C.text);
+    txt('UPPE', 14 + l, 56, C.dim); bar(62 + l, 56, 88, 7, r.prog, C.ok);
+    txt(isTouch ? (r.phase === 'turn' ? '◀ ▶ VÄND, SEDAN HUGG' : 'VÄXLA ◀ ▶ SNABBT') : (r.phase === 'turn' ? '← → VÄND  ↑ HUGG' : '← → HUGG  ↓ VÄND OM'), 14 + l, 68, C.text);
     if (r.phase === 'turn') {
       // show the direction you face
       const [vx, vy] = camera(), px = toPx(P.x) - vx, py = toPx(P.y) - vy;
@@ -1553,10 +1622,10 @@ function drawRescueUi() {
       for (let k = 6; k < 16; k++) ctx.fillRect(Math.round(px + Math.cos(P.a) * k), Math.round(py + Math.sin(P.a) * k), 1, 1);
     }
   } else {
-    if (r.phase === 'approach') txt('AVSTÅND ' + Math.round(r.dist || 0) + ' M', 14, 56, (r.dist >= 7 && r.dist <= 18) ? C.ok : C.warn);
-    else if (r.phase === 'pull') { txt('DRA', 14, 56, C.dim); bar(62, 56, 88, 7, r.prog, C.ok); }
+    if (r.phase === 'approach') txt('AVSTÅND ' + Math.round(r.dist || 0) + ' M', 14 + l, 56, (r.dist >= 7 && r.dist <= 18) ? C.ok : C.warn);
+    else if (r.phase === 'pull') { txt('DRA', 14 + l, 56, C.dim); bar(62 + l, 56, 88, 7, r.prog, C.ok); }
     if (r.phase === 'aim') {
-      const zone = 0.3 - (r.dist - 7) * 0.012, cx = W / 2, w = 160, y = 200;
+      const zone = 0.3 - (r.dist - 7) * 0.012, cx = full ? W / 2 + 35 + l / 2 : W / 2, w = 160, y = full ? 70 : 200;
       box(cx - w / 2 - 6, y - 16, w + 12, 34, 'rgba(6,12,20,0.9)', C.ice);
       txt('KASTA LINAN', cx, y - 11, C.ice, 'center');
       ctx.fillStyle = '#3a2020'; ctx.fillRect(cx - w / 2, y + 2, w, 8);
@@ -1653,7 +1722,7 @@ function draw() {
   }
   else if (state === 'result') drawResult();
   else if (state === 'season') drawSeason();
-  if (muted) txt('LJUD AV', W - 4, H - 10, C.dim, 'right');
+  if (muted && !isTouch) txt('LJUD AV', W - 4, H - 10, C.dim, 'right');
 }
 
 function step(dt) {
@@ -1671,9 +1740,7 @@ function step(dt) {
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  step(dt); draw();
-  if (document.body.dataset.state !== state) document.body.dataset.state = state;
-  updatePad();
+  step(dt); syncLayout(); updatePad(); draw();
   requestAnimationFrame(frame);
 }
 const go = () => requestAnimationFrame(t0 => { last = t0; frame(t0); });
