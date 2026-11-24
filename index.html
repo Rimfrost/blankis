@@ -34,17 +34,8 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   font-size: 12px; line-height: 1.6; color: var(--dim); text-align: center;
 }
 .legend b { color: var(--ice); font-weight: normal; }
-.pad { display: none; gap: 8px; }
-.pad button {
-  min-width: 0; font: 15px var(--font-px); color: var(--ink);
-  background: var(--frame); border: 3px solid var(--frame-hi); border-radius: 10px;
-  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.pad button.main { color: var(--ice); }
-.pad button.on { background: var(--frame-hi); }
+.pad { display: none; }
 button:focus-visible { outline: 3px solid var(--ice); outline-offset: 2px; }
-.mute { display: none; }
 
 /* ---------- mobile ---------- */
 .screen { position: relative; }
@@ -53,13 +44,38 @@ button:focus-visible { outline: 3px solid var(--ice); outline-offset: 2px; }
   html, body { overscroll-behavior: none; touch-action: none; -webkit-user-select: none; user-select: none; }
   body { position: fixed; inset: 0; overflow: hidden; }
   .legend { display: none; }
-  .pad { display: grid; }
   .wrap {
     height: 100%; min-height: 0; gap: 10px;
     padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
              max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   }
-  .pad button.mute { display: block; font-size: 11px; color: var(--dim); height: 32px; }
+  .pad button {
+    padding: 0; min-width: 0; color: var(--ink); font: 600 13px var(--font-px); letter-spacing: 0.04em;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* virtual gamepad: one big red action button, two smaller round ones above it */
+  .pad {
+    --big: 116px; --small: 64px;
+    display: grid; grid-template-columns: 1fr 1fr; justify-items: center; align-items: center;
+    gap: 10px 8px; width: calc(var(--small) * 2 + 8px); flex: 0 0 auto;
+  }
+  .pad .round { width: var(--small); height: var(--small); border-radius: 50%; background: var(--frame); border: 3px solid var(--frame-hi); }
+  .pad .round.on { background: var(--frame-hi); transform: scale(0.94); }
+  .pad .main {
+    grid-column: 1 / 3; width: var(--big); height: var(--big); border-radius: 50%; font-size: 22px; color: #fff;
+    background: #c62a22; border: 4px solid #f0837a; box-shadow: 0 5px 0 #741510;
+  }
+  .pad .main.on { background: #a81f18; transform: translateY(4px); box-shadow: 0 1px 0 #741510; }
+  .pad .main.small-text { font-size: 18px; }
+  .pad .gone { visibility: hidden; }
+  .pad .dim { opacity: 0.35; }
+  .pad .mute {
+    grid-column: 1 / 3; justify-self: end; width: 84px; height: 34px; border-radius: 17px;
+    font-size: 11px; color: var(--dim); background: none; border: 2px solid var(--frame-hi);
+  }
+  .steer.alt button { border-color: #ffd9d5; background: rgba(198,42,34,0.75); }
+  .steer.alt button.on { background: #ffb3ac; }
   /* steering: two small see-through buttons inside the picture, bottom left, side by side */
   body[data-state="skate"] .steer, body[data-state="rescue"] .steer {
     display: flex; position: absolute; left: 2.5%; bottom: 14%; gap: 8px; width: max(26%, 104px);
@@ -71,20 +87,23 @@ button:focus-visible { outline: 3px solid var(--ice); outline-offset: 2px; }
     -webkit-tap-highlight-color: transparent;
   }
   .steer button.on { background: rgba(159,224,255,0.35); }
-  /* portrait: picture on top, buttons in a row underneath */
+  /* portrait: picture on top, gamepad at the bottom with one thumb on each side */
   @media (orientation: portrait) {
     .wrap { display: grid; grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-content: start; }
     .screen { width: 100%; min-width: 0; border-width: 3px; }
-    .pad.act { align-self: end; height: min(100%, 170px); grid-template-columns: 1.4fr 1fr 1fr; grid-template-rows: auto 1fr; }
-    .pad.act .mute { grid-column: 1 / 4; }
-    .pad button { font-size: 18px; }
+    .pad { --big: min(34vw, 128px); --small: min(18vw, 66px); align-self: end; justify-self: end; margin-bottom: 14px; }
+    body[data-state="skate"] .steer, body[data-state="rescue"] .steer {
+      position: fixed; left: max(14px, env(safe-area-inset-left)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 36px);
+      width: min(42vw, 164px);
+    }
   }
-  /* landscape: big picture, buttons for the right thumb */
+  /* landscape: picture first, action buttons at the right edge */
   @media (orientation: landscape) {
-    .wrap { flex-direction: row; justify-content: center; align-items: stretch; }
+    .wrap { flex-direction: row; justify-content: space-between; align-items: stretch; }
     .screen { flex: 0 1 auto; align-self: center; min-width: 0; border-width: 3px; height: auto; aspect-ratio: 16 / 10;
-      width: min(calc(100vw - 150px - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100dvh - 26px) * 1.6)); }
-    .pad.act { width: 110px; flex: 0 0 auto; grid-template-rows: auto 1.4fr 1fr 1fr; }
+      width: min(calc(100vw - 166px - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100dvh - 26px) * 1.6)); }
+    .pad { align-content: end; grid-template-rows: 1fr auto auto; }
+    .pad .mute { align-self: start; }
   }
 }
 </style>
@@ -97,15 +116,15 @@ button:focus-visible { outline: 3px solid var(--ice); outline-offset: 2px; }
       <button data-key="right" aria-label="Styr höger">&#9654;</button>
     </div>
   </div>
-  <div class="pad act" aria-label="Åk">
-    <button class="mute" data-key="mute" aria-label="Ljud av eller på">LJUD</button>
-    <button data-key="up" class="main" aria-label="Skjut ifrån">SKJUT</button>
-    <button data-key="down" aria-label="Bromsa">BROMS</button>
-    <button data-key="action" aria-label="Pika med staven, OK">STAV</button>
+  <div class="pad" aria-label="Knappar">
+    <button class="mute" data-key="mute">LJUD PÅ</button>
+    <button class="round" data-slot="b" data-key=""></button>
+    <button class="round" data-slot="c" data-key=""></button>
+    <button class="main" data-slot="main" data-key=""></button>
   </div>
   <div class="legend">
     <span class="keys"><b>&#8592; &#8594;</b> STYR / VÄLJ SJÖ</span>
-    <span class="keys"><b>&#8593;</b> SKJUT IFRÅN</span>
+    <span class="keys"><b>&#8593;</b> ÅK</span>
     <span class="keys"><b>&#8595;</b> BROMSA</span>
     <span class="keys"><b>MELLANSLAG</b> PIKA MED STAVEN / OK</span>
     <span class="keys"><b>1 2 3</b> KARTA VÄDER TIPS</span>
@@ -1045,14 +1064,14 @@ function rescuePress(k) {
       say(isTouch ? 'HUGG MED ISDUBBARNA! VÄXLA ◀ ▶ SÅ SNABBT DU KAN.' : 'HUGG MED ISDUBBARNA! VÄXLA ← → SÅ SNABBT DU KAN.', C.ice, 5);
     } else if (r.phase === 'claw' && (k === 'down' || k === 'action')) {
       r.phase = 'turn';
-      say(isTouch ? 'VÄND DIG MED ◀ ▶, HUGG MED SKJUT.' : 'VÄND DIG MED ← →, HUGG MED ↑.', C.ice, 3);
+      say(isTouch ? 'VÄND DIG MED ◀ ▶, TRYCK SEDAN HUGG.' : 'VÄND DIG MED ← →, HUGG MED ↑.', C.ice, 3);
     } else if (r.phase === 'claw' && (k === 'left' || k === 'right') && k !== r.last) {
       r.last = k;
       const good = Math.abs(angDiff(P.a, r.tA)) < 0.9;
       if (good) r.prog += 0.065;
       else if (Math.random() < 0.3) {
         r.prog = Math.max(0, r.prog - 0.12); sCrack(); r.phase = 'turn';
-        say(isTouch ? 'KANTEN BRÖT! VÄND DIG (◀ ▶), HUGG MED SKJUT.' : 'KANTEN BRÖT! VÄND DIG ÅT ETT ANNAT HÅLL (← →), HUGG MED ↑.', C.warn, 4);
+        say(isTouch ? 'KANTEN BRÖT! VÄND DIG (◀ ▶), TRYCK SEDAN HUGG.' : 'KANTEN BRÖT! VÄND DIG ÅT ETT ANNAT HÅLL (← →), HUGG MED ↑.', C.warn, 4);
       }
       else r.prog += 0.03;
       sKick();
@@ -1164,13 +1183,50 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k in keys) keys[k] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 document.querySelectorAll('.pad button, .steer button').forEach(btn => {
-  const k = btn.dataset.key;
-  const on = e => { e.preventDefault(); if (k in keys) keys[k] = true; btn.classList.add('on'); press(k); };
-  const off = () => { if (k in keys) keys[k] = false; btn.classList.remove('on'); };
+  let held = null;   // the key this press started with; the label may change while it is held
+  const on = e => {
+    e.preventDefault();
+    const k = btn.dataset.key; if (!k) return;
+    held = k; if (k in keys) keys[k] = true;
+    btn.classList.add('on'); press(k);
+  };
+  const off = () => { if (held in keys) keys[held] = false; held = null; btn.classList.remove('on'); };
   btn.addEventListener('pointerdown', on);
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => btn.addEventListener(ev, off));
   btn.addEventListener('contextmenu', e => e.preventDefault());
 });
+// what the touch buttons do right now: [label, key], '' = shown but inactive, null = hidden
+function padLayout() {
+  const go = ['ÅK', 'up'], brake = ['BROMS', 'down'];
+  if (state === 'title') return { main: ['START', 'action'] };
+  if (state === 'plan') return confirm ? { main: ['JA', 'action'], b: ['NEJ', 'back'] } : { main: [tab === 0 ? 'VÄLJ' : 'KARTA', 'action'] };
+  if (state === 'skate') return { main: go, b: brake, c: ['PIKA', 'action'] };
+  if (state === 'rescue') {
+    if (resq.phase === 'turn') return { main: ['HUGG', 'up'] };
+    if (resq.phase === 'claw') return { main: ['HUGG', ''], b: ['VÄND', 'down'], alt: true };
+    if (resq.phase === 'approach') return { main: go, b: brake, c: ['KASTA', 'action'] };
+    if (resq.phase === 'aim') return { main: ['KASTA', 'action'] };
+    return { main: ['DRA', ''], alt: true };
+  }
+  return { main: ['VIDARE', 'action'] };
+}
+let padSig = '';
+function updatePad() {
+  if (!isTouch) return;
+  const l = padLayout(), sig = JSON.stringify(l) + muted;
+  if (sig === padSig) return;
+  padSig = sig;
+  document.querySelectorAll('.pad [data-slot]').forEach(el => {
+    const d = l[el.dataset.slot];
+    el.classList.toggle('gone', !d);
+    el.classList.toggle('dim', !!d && !d[1]);
+    el.classList.toggle('small-text', !!d && d[0].length > 5);
+    el.dataset.key = d ? d[1] : '';
+    el.textContent = d ? d[0] : '';
+  });
+  document.querySelector('.steer').classList.toggle('alt', !!l.alt);
+  document.querySelector('.mute').textContent = muted ? 'LJUD AV' : 'LJUD PÅ';
+}
 // iOS only unlocks sound on touchend/click
 ['touchend', 'click'].forEach(ev => addEventListener(ev, () => initAudio(), { passive: true }));
 document.addEventListener('dblclick', e => e.preventDefault());
@@ -1489,7 +1545,7 @@ function drawRescueUi() {
   bar(62, 42, 88, 7, r.cold / (r.who === 'pal' ? 45 : 35), r.cold < 10 ? C.bad : C.warn);
   if (r.who === 'me') {
     txt('UPPE', 14, 56, C.dim); bar(62, 56, 88, 7, r.prog, C.ok);
-    txt(isTouch ? (r.phase === 'turn' ? '◀ ▶ VÄND  SKJUT HUGG' : '◀ ▶ HUGG  BROMS VÄND OM') : (r.phase === 'turn' ? '← → VÄND  ↑ HUGG' : '← → HUGG  ↓ VÄND OM'), 14, 68, C.text);
+    txt(isTouch ? (r.phase === 'turn' ? '◀ ▶ VÄND, SEDAN HUGG' : 'VÄXLA ◀ ▶ SNABBT') : (r.phase === 'turn' ? '← → VÄND  ↑ HUGG' : '← → HUGG  ↓ VÄND OM'), 14, 68, C.text);
     if (r.phase === 'turn') {
       // show the direction you face
       const [vx, vy] = camera(), px = toPx(P.x) - vx, py = toPx(P.y) - vy;
@@ -1617,6 +1673,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   step(dt); draw();
   if (document.body.dataset.state !== state) document.body.dataset.state = state;
+  updatePad();
   requestAnimationFrame(frame);
 }
 const go = () => requestAnimationFrame(t0 => { last = t0; frame(t0); });
